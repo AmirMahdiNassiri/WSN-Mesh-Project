@@ -373,7 +373,12 @@ static void vnd_calibration_start(struct bt_mesh_model *model,
 		int result = calibrate_node(ctx->addr, received_proximity, ctx->recv_rssi);
 
 		if (result == 1)
-			printk("Calibration START successful.\n");
+		{
+			printk("First calibration START successful, initating send calibrate for the other node.\n");
+			k_work_submit(&calibration_work);
+		}
+		else if (result == 0)
+			printk("Repeating calibration START successful.\n");
 		else
 			printk("Calibration START failed: %d\n", result);
 	}
@@ -463,7 +468,12 @@ static void vnd_calibration_end(struct bt_mesh_model *model,
 		int result = calibrate_node(ctx->addr, received_proximity, ctx->recv_rssi);
 
 		if (result == 2)
-			printk("Calibration END successful.\n");
+		{
+			printk("First calibration END successful, initating send calibrate for the other node.\n");
+			k_work_submit(&calibration_work);
+		}
+		else if (result == 0)
+			printk("Repeating calibration END successful.\n");
 		else
 			printk("Calibration END failed: %d\n", result);
 	}

@@ -12,7 +12,7 @@ const int CALIBRATION_START_MAX = 255;
 const int CALIBRATION_END_MIN = 20;
 const int CALIBRATION_END_MAX = CALIBRATION_END_MIN + ACCEPTABLE_THRESHOLD;
 
-const float PROXIMITY_TO_METER = 0.2 / 255;
+const float PROXIMITY_TO_METER = 0.25 / 255;
 
 #define MAX_NODES 10
 
@@ -25,8 +25,12 @@ struct node_data
     int min_proximity;
     int min_rssi;
 
+    int start_calibrated;
+
     int max_proximity;
     int max_rssi;
+
+    int end_calibrated;
 
     int is_calibrated;
     float rssi_distance_factor;
@@ -79,7 +83,9 @@ void initialize_estimator()
     for (int i = 0; i < MAX_NODES; i++)
     {
         struct node_data n;
-
+        
+        n.start_calibrated = 0;
+        n.end_calibrated = 0;
         n.is_calibrated = 0;
 
         n.max_proximity = -1;
@@ -196,17 +202,35 @@ int calibrate_node(uint16_t address, int proximity, int rssi)
     {
         check_node_calibration(&nodes_data[node_index]);
         print_status_update();
-        return 1;
+        
+        if (nodes_data[node_index].start_calibrated == 0)
+        {
+            nodes_data[node_index].start_calibrated = 1;
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
     }
     
     if (check_calibration_end())
     {
         check_node_calibration(&nodes_data[node_index]);
         print_status_update();
-        return 2;
+        
+        if (nodes_data[node_index].end_calibrated == 0)
+        {
+            nodes_data[node_index].end_calibrated = 1;
+            return 2;
+        }
+        else
+        {
+            return 0;
+        }
     }
 
-    return 0;
+    return -1;
 }
 
 void update_node_rssi(uint16_t address, int rssi)
