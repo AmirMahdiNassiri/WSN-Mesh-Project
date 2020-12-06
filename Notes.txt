@@ -1,0 +1,19 @@
+================================================================================
+
+Copy Kconfig file into the following Zephyr directory:
+
+zephyr/subsys/bluetooth/mesh/Kconfig
+
+================================================================================
+
+The nRF chip erase command is required to change mesh network configuration:
+
+pyocd erase -c chip -t nrf52
+
+Or maybe use:
+
+west -erase
+
+before flashing
+
+================================================================================
