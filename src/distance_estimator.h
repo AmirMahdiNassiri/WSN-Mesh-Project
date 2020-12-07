@@ -2,6 +2,7 @@
 
 #define NAME_SIZE 8
 #define MAX_NODES 10
+#define CALIBRATION_STEPS 5
 
 extern const int CALIBRATION_START_MIN;
 extern const int CALIBRATION_START_MAX;
@@ -14,8 +15,9 @@ struct node_data
 
     char name[NAME_SIZE];
 
-    int max_proximity;
-    int max_rssi;
+    int calibration_step;
+    int proximity_values[CALIBRATION_STEPS];
+    int rssi_values[CALIBRATION_STEPS];
 
     int is_calibrated;
     double rssi_distance_factor;

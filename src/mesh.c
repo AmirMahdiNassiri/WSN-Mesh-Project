@@ -380,7 +380,7 @@ static void vnd_calibration(struct bt_mesh_model *model,
 
 		if (result == 1)
 		{
-			printk("First calibration successful, attempting send calibrate for the other node.\n");
+			printk("First calibration, attempting send calibrate for the other node.\n");
 			k_work_submit(&calibration_work);
 			board_blink_leds();
 		}

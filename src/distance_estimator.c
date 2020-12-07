@@ -33,8 +33,8 @@ struct node_data nodes_data[MAX_NODES];
 
 void print_node_status(struct node_data n)
 {
-    printf("name: %s address: 0x%04x max_proximity: %d max_rssi: %d is_calibrated: %d rssi_distance_factor: %f last_rssi: %d estimated_distance: %f\n", 
-        n.name, n.address, n.max_proximity, n.max_rssi,
+    printf("name: %s address: 0x%04x calibration_step: %d is_calibrated: %d rssi_distance_factor: %f last_rssi: %d estimated_distance: %f\n", 
+        n.name, n.address, n.calibration_step,
         n.is_calibrated, n.rssi_distance_factor,
         n.last_rssi, n.estimated_distance);
 }
@@ -60,10 +60,8 @@ void initialize_estimator()
     {
         struct node_data n;
         
+        n.calibration_step = 0;
         n.is_calibrated = 0;
-
-        n.max_proximity = -1;
-        n.max_rssi = -200;
         
         nodes_data[i] = n;
     }
@@ -138,19 +136,30 @@ void update_node_estimated_distance(struct node_data *n)
 
 void check_node_calibration(struct node_data *n)
 {
-    if (is_valid_calibration(n->max_proximity))
+    if (CALIBRATION_STEPS <= n->calibration_step)
     {
-        // NOTE: Remember that proximity values are highest when close, lowest when furthest
-        
-        // NOTE: See the following page for the formula:
-        // https://iotandelectronics.wordpress.com/2016/10/07/how-to-calculate-distance-from-the-rssi-value-of-the-ble-beacon/#:~:text=At%20maximum%20Broadcasting%20Power%20(%2B,Measured%20Power%20(see%20below).
+        printf("Calibrate finalizing.\n");
 
-        double measured_power = calculate_measured_power(n->max_rssi,
-            (255 - n->max_proximity) * PROXIMITY_TO_METER);
+        double measured_power_average = 0;
 
-        n->rssi_distance_factor = measured_power;
+        for (int i = 0; i < n->calibration_step; i++)
+        {
+            // NOTE: Remember that proximity values are highest when close, lowest when furthest
+                        
+            // NOTE: See the following page for the formula:
+            // https://iotandelectronics.wordpress.com/2016/10/07/
 
+            double measured_power = calculate_measured_power(n->rssi_values[i],
+                (255 - n->proximity_values[i]) * PROXIMITY_TO_METER);
+
+            measured_power_average += measured_power / n->calibration_step;
+        }
+
+        printf("measured_power_average calculated: %f.\n", measured_power_average);
+
+        n->rssi_distance_factor = measured_power_average;
         n->is_calibrated = 1;
+
         update_node_estimated_distance(n);
     }
     else
@@ -177,28 +186,21 @@ int is_valid_calibration(int proximity)
     return 0;
 }
 
-int check_valid_calibration()
-{
-    return is_valid_calibration(self_proximity);
-}
-
 int calibrate_node(uint16_t address, char *name, int proximity, int rssi)
 {
-    set_self_node_proximity(proximity);
-
     int node_index = add_node_if_not_exists(address, name);
 
-    if (nodes_data[node_index].max_proximity < proximity)
-        nodes_data[node_index].max_proximity = proximity;
+    node_data *node = &nodes_data[node_index];
 
-    if (nodes_data[node_index].max_rssi < rssi)
-        nodes_data[node_index].max_rssi = rssi;
-
-    if (check_valid_calibration())
+    if (is_valid_calibration(proximity) && node->calibration_step < CALIBRATION_STEPS)
     {
-        int first_calibration = !nodes_data[node_index].is_calibrated;
+        node->proximity_values[node->calibration_step] = proximity;
+        node->rssi_values[node->calibration_step] = rssi;
+        node->calibration_step++;
 
-        check_node_calibration(&nodes_data[node_index]);
+        int first_calibration = !node->is_calibrated;
+        check_node_calibration(node);
+
         print_status_update();
         
         return first_calibration;
