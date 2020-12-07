@@ -22,6 +22,7 @@
 
 #include "mesh.h"
 #include "board.h"
+#include "distance_estimator.h"
 
 enum font_size {
 	FONT_SMALL = 0,
@@ -432,68 +433,31 @@ static void show_main(void)
 #define OP_HA		   0xbe
 #define DEFAULT_TTL       31
 
-extern int x[6];
-extern int data[6];
-extern char name1[32];
-extern char name2[32];
-extern char name3[32];
-extern char name4[32];
-extern char name5[32];
-
 static void my_data(k_timeout_t interval)
 {
-	struct sensor_value val[3];
 	uint8_t line = 0U;
 	uint16_t len = 0U;
+
 	cfb_framebuffer_clear(display_dev, true);
-	/* apds9960 */
-	if (get_apds9960_val(val)) {
-		
-	}
-	
-	len = snprintf(str_buf, sizeof(str_buf), "Prox:%d\n", val[1].val1);
-	print_line(FONT_BIG, line++, str_buf, len, false);
-	
-	len = snprintf(str_buf, sizeof(str_buf), "");
-	print_line(FONT_BIG, line++, str_buf, len, false);
-	
-	len = snprintf(str_buf, sizeof(str_buf), "SELF:%x RSSI:N/A\n", data[0]);
+
+	const char* bluetooth_name = get_bluetooth_name();
+
+	len = snprintf(str_buf, sizeof(str_buf), "*%s @%04x\n", bluetooth_name, mesh_get_addr());
 	print_line(FONT_SMALL, line++, str_buf, len, false);
-	
-	if ( strcmp(name1,"") ==0){ 
-	len = snprintf(str_buf, sizeof(str_buf), "Name:%x RSSI:%04d\n", data[1], x[1]);
-	print_line(FONT_SMALL, line++, str_buf, len, false);}
-		else{
-		len = snprintf(str_buf, sizeof(str_buf), "%s:%x RSSI:%04d\n",name1, data[1], x[1]);
-		print_line(FONT_SMALL, line++, str_buf, len, false);}
-	
-	if ( strcmp(name2,"") ==0){ 
-	len = snprintf(str_buf, sizeof(str_buf), "Name:%x RSSI:%04d\n", data[2], x[2]);
-	print_line(FONT_SMALL, line++, str_buf, len, false);}
-		else{
-			len = snprintf(str_buf, sizeof(str_buf), "%s:%x RSSI:%04d\n",name2, data[2], x[2]);
-			print_line(FONT_SMALL, line++, str_buf, len, false); }
-			
-			
-	if ( strcmp(name3,"") ==0){ 
-	len = snprintf(str_buf, sizeof(str_buf), "Name:%x RSSI:%04d\n", data[3], x[3]);
-	print_line(FONT_SMALL, line++, str_buf, len, false);}
-		else{ 
-			len = snprintf(str_buf, sizeof(str_buf), "%s:%x RSSI:%04d\n",name3, data[3], x[3]);
-			print_line(FONT_SMALL, line++, str_buf, len, false);}
-	
-	if (strcmp(name4,"") ==0){ 
-	len = snprintf(str_buf, sizeof(str_buf), "Name:%x RSSI:%04d\n", data[4], x[4]);
-	print_line(FONT_SMALL, line++, str_buf, len, false);}
-		else{
-			len = snprintf(str_buf, sizeof(str_buf), "%s:%x RSSI:%04d\n",name4, data[4], x[4]);
-			print_line(FONT_SMALL, line++, str_buf, len, false);}
-	
-		
+
+	for (int i = 0; i < current_nodes; i++)
+	{
+		len = snprintf(str_buf, sizeof(str_buf), "%s @%04x S:%d D:%.2f\n", 
+			nodes_data[i].name, nodes_data[i].address, 
+			nodes_data[i].last_rssi, nodes_data[i].estimated_distance);
+
+		print_line(FONT_SMALL, line++, str_buf, len, false);
+	}
+
 	cfb_framebuffer_finalize(display_dev);
 	k_delayed_work_submit(&display_work, interval);
-	return;
 
+	return;
 }
 
 //** this is my function. LOOK HERE LOOK HERE LOOK HERE **//

@@ -33,8 +33,7 @@
 #define APP_IDX           0x000
 #define FLAGS             0
 
-/* Maximum characters in "hello" message */
-#define HELLO_MAX         8
+#define NAME_SIZE         8
 #define PROXIMITY_SIZE 4
 
 #define VALID_PROXIMITY_DELTA 10
@@ -72,6 +71,11 @@ static struct led_onoff_state led_onoff_state[] = {
 	/* Use LED 0 for this model */
 	{ .dev_id = 0 },
 };
+
+const char* get_bluetooth_name()
+{
+	return bt_get_name();
+}
 
 static void heartbeat(uint8_t hops, uint16_t feat)
 {
@@ -335,12 +339,6 @@ static struct bt_mesh_model root_models[] =
 		      sensor_srv_op, &sensor_srv_pub, NULL),
 };
 
-char name1[32];
-char name2[32];
-char name3[32];
-char name4[32];
-char name5[32];
-
 int is_in_vicinity(int other_node_proximity)
 {
 	if (abs(other_node_proximity - self_proximity) < VALID_PROXIMITY_DELTA)
@@ -354,28 +352,38 @@ static void vnd_calibration_start(struct bt_mesh_model *model,
 			struct bt_mesh_msg_ctx *ctx,
 			struct net_buf_simple *buf)
 {
-	int received_proximity;
-	memcpy(&received_proximity, buf->data, PROXIMITY_SIZE);
-
-	printk("Calibration START received. Address: 0x%04x RSSI: %04d Proximity: %d\n", 
-		ctx->addr, ctx->recv_rssi, received_proximity);
-
 	if (ctx->addr == bt_mesh_model_elem(model)->addr) 
 	{
 		printk("Ignoring calibration START from self.\n");
 		return;
 	}
 
+	// Fetch proximity
+	int received_proximity;
+	memcpy(&received_proximity, buf->data, PROXIMITY_SIZE);
+
+	// Fetch name
+	char received_name[32];
+	size_t len = MIN(buf->len - PROXIMITY_SIZE, NAME_SIZE);
+
+	memcpy(received_name, buf->data + PROXIMITY_SIZE, len);
+	received_name[len] = '\0';
+
+	printk("Calibration START received. Address: 0x%04x Name: %s RSSI: %04d Proximity: %d\n", 
+		ctx->addr, received_name, ctx->recv_rssi, received_proximity);
+
+	// Handle calibration if in correct vicinity
 	if (is_in_vicinity(received_proximity))
 	{
 		printk("Node is in the right vicinity, attempting to calibrate.\n");
 
-		int result = calibrate_node(ctx->addr, received_proximity, ctx->recv_rssi);
+		int result = calibrate_node(ctx->addr, received_name, received_proximity, ctx->recv_rssi);
 
 		if (result == 1)
 		{
 			printk("First calibration START successful, initating send calibrate for the other node.\n");
 			k_work_submit(&calibration_work);
+			board_blink_leds();
 		}
 		else if (result == 0)
 			printk("Repeating calibration START successful.\n");
@@ -383,94 +391,48 @@ static void vnd_calibration_start(struct bt_mesh_model *model,
 			printk("Calibration START failed: %d\n", result);
 	}
 
-	char str[32];
-	size_t len;
-	int result[6];
-	
-	len = MIN(buf->len, HELLO_MAX);
-	memcpy(str, buf->data, len);
-	str[len] = '\0';
-	board_add_hello(ctx->addr, str);
-
-	result[1] = strcmp(name1,str);
-	result[2] = strcmp(name1,str);
-	result[3] = strcmp(name1,str);
-	result[4] = strcmp(name1,str);
-	result[5] = strcmp(name1,str);
-	
-	if 	(result[1]!=0 && result[2] !=0 && result[3] !=0 && result[4] !=0 && result[5] !=0)
-	{
-		strcat(name1,str);
-		printk("Name1 ASSIGNED %s\n",name1);
-		goto JUMPING;
-	}
-	else if (result[2] !=0 && result[3] !=0 && result[4] !=0 && result[5] !=0)
-	{
-		strcat(name2,str);
-		printk("Name2 ASSIGNED %s\n",name2);
-		goto JUMPING;
-	}
-	else if (result[3] !=0 && result[4] !=0 && result[5] !=0)
-	{
-		strcat(name3,str);
-		printk("Name3 ASSIGNED %s\n",name3);
-		goto JUMPING;
-	}
-	else if (result[4] !=0 && result[5] !=0)
-	{
-		strcat(name4,str);
-		printk("Name4 ASSIGNED %s\n",name4);
-		goto JUMPING;
-	}
-	else if (result[5] !=0)
-	{
-		strcat(name5,str);
-		printk("Name5 ASSIGNED %s\n",name5);
-		goto JUMPING;
-	}
-
-    JUMPING:
-    	printk("these are the NAMES -%s %s %s \n", name1,name2,name3);
-
-	strcat(str, " says hi!");
-	board_show_text(str, false, K_SECONDS(1));
-	
-	board_blink_leds();
+	// Handle the name
+	board_add_hello(ctx->addr, received_name);
+	board_show_text(received_name, false, K_SECONDS(1));
 }
 
-int x[6];
-int data[6];
-
-// This function updates the stored RSSI values for each node
 // Calibration end handler
 static void vnd_calibration_end(struct bt_mesh_model *model,
 			struct bt_mesh_msg_ctx *ctx,
 			struct net_buf_simple *buf)   
 {
-	int received_proximity;
-	memcpy(&received_proximity, buf->data, PROXIMITY_SIZE);
-
-	printk("Calibration END received. Address: 0x%04x RSSI: %04d Proximity: %d\n", 
-		ctx->addr, ctx->recv_rssi, received_proximity);
-
 	if (ctx->addr == bt_mesh_model_elem(model)->addr) 
 	{
-		data[0] = ctx->addr;
-		x[0] = ctx->recv_rssi;
 		printk("Ignoring calibration END from self.\n");
 		return;
 	}
 
+	// Fetch proximity
+	int received_proximity;
+	memcpy(&received_proximity, buf->data, PROXIMITY_SIZE);
+
+	// Fetch name
+	char received_name[32];
+	size_t len = MIN(buf->len - PROXIMITY_SIZE, NAME_SIZE);
+
+	memcpy(received_name, buf->data + PROXIMITY_SIZE, len);
+	received_name[len] = '\0';
+
+	printk("Calibration END received. Address: 0x%04x Name: %s RSSI: %04d Proximity: %d\n", 
+		ctx->addr, received_name, ctx->recv_rssi, received_proximity);
+
+	// Handle calibration if in correct vicinity
 	if (is_in_vicinity(received_proximity))
 	{
 		printk("Node is in the right vicinity, attempting to calibrate.\n");
 
-		int result = calibrate_node(ctx->addr, received_proximity, ctx->recv_rssi);
+		int result = calibrate_node(ctx->addr, received_name, received_proximity, ctx->recv_rssi);
 
 		if (result == 2)
 		{
 			printk("First calibration END successful, initating send calibrate for the other node.\n");
 			k_work_submit(&calibration_work);
+			board_blink_leds();
 		}
 		else if (result == 0)
 			printk("Repeating calibration END successful.\n");
@@ -478,32 +440,9 @@ static void vnd_calibration_end(struct bt_mesh_model *model,
 			printk("Calibration END failed: %d\n", result);
 	}
 
-	// RSSI and address updating code
-	if (ctx->addr != data[2] && ctx->addr != data[3] && ctx->addr != data[4] && ctx->addr != data[5])
-	{
-		data[1] = ctx->addr;
-		x[1] = ctx->recv_rssi;
-	}
-	else if (ctx->addr != data[1] && ctx->addr != data[3] && ctx->addr != data[4] && ctx->addr != data[5])
-	{
-		data[2] = ctx->addr;
-		x[2] = ctx->recv_rssi;
-	}
-	else if (ctx->addr != data[2] && ctx->addr != data[1] && ctx->addr != data[4] && ctx->addr != data[5])
-	{
-		data[3] = ctx->addr;
-		x[3] = ctx->recv_rssi;
-	}
-	else if (ctx->addr != data[2] && ctx->addr != data[3] && ctx->addr != data[1] && ctx->addr != data[5])
-	{
-		data[4] = ctx->addr;
-		x[4] = ctx->recv_rssi;
-	}
-	else if (ctx->addr != data[2] && ctx->addr != data[3] && ctx->addr != data[4] && ctx->addr != data[1])
-	{
-		data[5] = ctx->addr;
-		x[5] = ctx->recv_rssi;
-	}
+	// Handle the name
+	board_add_hello(ctx->addr, received_name);
+	board_show_text(received_name, false, K_SECONDS(1));
 }
 
 // Baduser message handler
@@ -521,7 +460,7 @@ static void vnd_baduser(struct bt_mesh_model *model,
 		return;
 	}
 
-	len = MIN(buf->len, HELLO_MAX);
+	len = MIN(buf->len, NAME_SIZE);
 	memcpy(str, buf->data, len);
 	str[len] = '\0';
 
@@ -624,7 +563,7 @@ static void send_calibration(struct k_work *work)
 
 	if (is_calibration_start(self_proximity))
 	{
-		NET_BUF_SIMPLE_DEFINE(msg, 3 + PROXIMITY_SIZE + 4);
+		NET_BUF_SIMPLE_DEFINE(msg, 3 + PROXIMITY_SIZE + NAME_SIZE + 4);
 
 		struct bt_mesh_msg_ctx ctx = 
 		{
@@ -633,9 +572,15 @@ static void send_calibration(struct k_work *work)
 			.send_ttl = DEFAULT_TTL,
 		};
 
+		// Initialize message
 		bt_mesh_model_msg_init(&msg, OP_VND_CALIBRATION_START);
 
+		// Add proximity data
 		net_buf_simple_add_mem(&msg, &self_proximity, PROXIMITY_SIZE);
+
+		// Add bluetooth name
+		const char* bluetooth_name = get_bluetooth_name();
+		net_buf_simple_add_mem(&msg, bluetooth_name, MIN(NAME_SIZE, first_name_len(bluetooth_name)));
 
 		if (bt_mesh_model_send(&vnd_models[0], &ctx, &msg, NULL, NULL) == 0) 
 		{
@@ -648,7 +593,7 @@ static void send_calibration(struct k_work *work)
 	}
 	else if (is_calibration_end(self_proximity))
 	{
-		NET_BUF_SIMPLE_DEFINE(msg, 3 + PROXIMITY_SIZE + 4);
+		NET_BUF_SIMPLE_DEFINE(msg, 3 + PROXIMITY_SIZE + NAME_SIZE + 4);
 
 		struct bt_mesh_msg_ctx ctx = 
 		{
@@ -657,9 +602,15 @@ static void send_calibration(struct k_work *work)
 			.send_ttl = DEFAULT_TTL,
 		};
 
+		// Initialize message
 		bt_mesh_model_msg_init(&msg, OP_VND_CALIBRATION_END);
 
+		// Add proximity data
 		net_buf_simple_add_mem(&msg, &self_proximity, PROXIMITY_SIZE);
+		
+		// Add bluetooth name
+		const char* bluetooth_name = get_bluetooth_name();
+		net_buf_simple_add_mem(&msg, bluetooth_name, MIN(NAME_SIZE, first_name_len(bluetooth_name)));
 
 		if (bt_mesh_model_send(&vnd_models[0], &ctx, &msg, NULL, NULL) == 0) 
 		{
@@ -701,7 +652,7 @@ void mesh_send_calibration(int proximity)
 
 static void send_baduser(struct k_work *work)
 {
-	NET_BUF_SIMPLE_DEFINE(msg, 3 + HELLO_MAX + 4);
+	NET_BUF_SIMPLE_DEFINE(msg, 3 + NAME_SIZE + 4);
 
 	struct bt_mesh_msg_ctx ctx = 
 	{
@@ -710,10 +661,10 @@ static void send_baduser(struct k_work *work)
 		.send_ttl = DEFAULT_TTL,
 	};
 
-	const char *name = bt_get_name();
-
+	const char* bluetooth_name = get_bluetooth_name();
+	
 	bt_mesh_model_msg_init(&msg, OP_VND_BADUSER);
-	net_buf_simple_add_mem(&msg, name, MIN(HELLO_MAX, first_name_len(name)));
+	net_buf_simple_add_mem(&msg, bluetooth_name, MIN(NAME_SIZE, first_name_len(bluetooth_name)));
 
 	if (bt_mesh_model_send(&vnd_models[0], &ctx, &msg, NULL, NULL) == 0) 
 	{

@@ -37,6 +37,7 @@ void mesh_send_calibration(int);
 void mesh_send_baduser(void);
 
 uint16_t mesh_get_addr(void);
+const char* get_bluetooth_name(void);
 bool mesh_is_initialized(void);
 void mesh_start(void);
 int mesh_init(void);

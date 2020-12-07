@@ -1,6 +1,7 @@
 #include <zephyr.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "distance_estimator.h"
 
@@ -14,38 +15,13 @@ const int CALIBRATION_END_MAX = CALIBRATION_END_MIN + ACCEPTABLE_THRESHOLD;
 
 const float PROXIMITY_TO_METER = 0.25 / 255;
 
-#define MAX_NODES 10
-
-// ======================================== Defined Data Types ======================================== //
-
-struct node_data
-{
-    uint16_t address;
-
-    int min_proximity;
-    int min_rssi;
-
-    int start_calibrated;
-
-    int max_proximity;
-    int max_rssi;
-
-    int end_calibrated;
-
-    int is_calibrated;
-    float rssi_distance_factor;
-
-    int last_rssi;
-    float estimated_distance;
-};
-
-typedef struct node_data node_data;
 
 // ======================================== Global Variables ======================================== //
 
-static int current_proximity;
-static struct node_data nodes_data[MAX_NODES];
-static int current_nodes = 0;
+int current_proximity;
+
+int current_nodes = 0;
+struct node_data nodes_data[MAX_NODES];
 
 // ======================================== Functions ======================================== //
 
@@ -53,12 +29,12 @@ void print_node_status(struct node_data n)
 {
     char rssi_distance_factor_string[10];
     sprintf(rssi_distance_factor_string, "%f", n.rssi_distance_factor);
-
+    
     char estimated_distance_string[10];
     sprintf(estimated_distance_string, "%f", n.estimated_distance);
 
-    printk(" address: 0x%04x max_proximity: %d max_rssi: %d min_proximity: %d min_rssi: %d is_calibrated: %d rssi_distance_factor: %s last_rssi: %d estimated_distance: %s\n", 
-        n.address, n.max_proximity, n.max_rssi,
+    printk("name: %s address: 0x%04x max_proximity: %d max_rssi: %d min_proximity: %d min_rssi: %d is_calibrated: %d rssi_distance_factor: %s last_rssi: %d estimated_distance: %s\n", 
+        n.name, n.address, n.max_proximity, n.max_rssi,
         n.min_proximity, n.min_rssi, n.is_calibrated,
         rssi_distance_factor_string, n.last_rssi, estimated_distance_string);
 }
@@ -111,14 +87,17 @@ int find_node(uint16_t address)
     return -1;
 }
 
-int add_node_if_not_exists(uint16_t address)
+int add_node_if_not_exists(uint16_t address, char *name)
 {
     int found_index = find_node(address);
 
     if (found_index != -1)
         return found_index;
 
-    nodes_data[current_nodes++].address = address;
+    nodes_data[current_nodes].address = address;
+    strcpy(nodes_data[current_nodes].name, name);
+
+    current_nodes++;
 
     return current_nodes - 1;
 }
@@ -180,11 +159,11 @@ int check_calibration_end()
     return is_calibration_end(current_proximity);
 }
 
-int calibrate_node(uint16_t address, int proximity, int rssi)
+int calibrate_node(uint16_t address, char *name, int proximity, int rssi)
 {
     set_current_proximity(proximity);
 
-    int node_index = add_node_if_not_exists(address);
+    int node_index = add_node_if_not_exists(address, name);
 
     if (nodes_data[node_index].max_proximity < proximity)
         nodes_data[node_index].max_proximity = proximity;
