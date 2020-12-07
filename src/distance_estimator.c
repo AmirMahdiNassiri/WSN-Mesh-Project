@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "distance_estimator.h"
 
@@ -13,8 +14,11 @@ const int CALIBRATION_START_MAX = 255;
 const int CALIBRATION_END_MIN = 20;
 const int CALIBRATION_END_MAX = CALIBRATION_END_MIN + ACCEPTABLE_THRESHOLD;
 
-const float PROXIMITY_TO_METER = 0.25 / 255;
+const float MIN_PROXIMITY_DISTANCE = 0.05;
+const float MAX_PROXIMITY_DISTANCE = 0.24;
+const float PROXIMITY_TO_METER = MAX_PROXIMITY_DISTANCE / 235;
 
+const int ENVIRONMENTAL_FACTOR = 2 * 10;
 
 // ======================================== Global Variables ======================================== //
 
@@ -27,16 +31,10 @@ struct node_data nodes_data[MAX_NODES];
 
 void print_node_status(struct node_data n)
 {
-    char rssi_distance_factor_string[10];
-    sprintf(rssi_distance_factor_string, "%f", n.rssi_distance_factor);
-    
-    char estimated_distance_string[10];
-    sprintf(estimated_distance_string, "%f", n.estimated_distance);
-
-    printk("name: %s address: 0x%04x max_proximity: %d max_rssi: %d min_proximity: %d min_rssi: %d is_calibrated: %d rssi_distance_factor: %s last_rssi: %d estimated_distance: %s\n", 
+    printf("name: %s address: 0x%04x max_proximity: %d max_rssi: %d is_calibrated: %d rssi_distance_factor: %f last_rssi: %d estimated_distance: %f\n", 
         n.name, n.address, n.max_proximity, n.max_rssi,
-        n.min_proximity, n.min_rssi, n.is_calibrated,
-        rssi_distance_factor_string, n.last_rssi, estimated_distance_string);
+        n.is_calibrated, n.rssi_distance_factor,
+        n.last_rssi, n.estimated_distance);
 }
 
 void print_status_update()
@@ -60,15 +58,10 @@ void initialize_estimator()
     {
         struct node_data n;
         
-        n.start_calibrated = 0;
-        n.end_calibrated = 0;
         n.is_calibrated = 0;
 
         n.max_proximity = -1;
         n.max_rssi = -200;
-
-        n.min_proximity = 300;
-        n.min_rssi = 200;
         
         nodes_data[i] = n;
     }
@@ -102,23 +95,40 @@ int add_node_if_not_exists(uint16_t address, char *name)
     return current_nodes - 1;
 }
 
+double calculate_measured_power(int rssi, float distance)
+{
+    if (distance == 0)
+        distance = MIN_PROXIMITY_DISTANCE;
+
+    double d = log10(distance);
+    d *= ENVIRONMENTAL_FACTOR;
+    double measured_power = d + rssi;
+
+    return measured_power;
+}
+
 void update_node_estimated_distance(struct node_data *n)
 {
     if (n->is_calibrated == 0)
         return;
 
-    int rssi_diff = abs(n->max_rssi - n->last_rssi);
-    n->estimated_distance = rssi_diff * n->rssi_distance_factor;
+    n->estimated_distance = pow(10, (n->rssi_distance_factor - n->last_rssi)/ENVIRONMENTAL_FACTOR);
 }
 
 void check_node_calibration(struct node_data *n)
 {
-    if (is_calibration_start(n->max_proximity) && is_calibration_end(n->min_proximity))
+    if (is_valid_calibration(n->max_proximity))
     {
-        int rssi_diff = abs(n->max_rssi - n->min_rssi);
-        int proximity_diff = abs(n->max_proximity - n->min_proximity);
+        // NOTE: Remember that proximity values are highest when close, lowest when furthest
+        
+        // NOTE: See the following page for the formula:
+        // https://iotandelectronics.wordpress.com/2016/10/07/how-to-calculate-distance-from-the-rssi-value-of-the-ble-beacon/#:~:text=At%20maximum%20Broadcasting%20Power%20(%2B,Measured%20Power%20(see%20below).
 
-        n->rssi_distance_factor = (proximity_diff * PROXIMITY_TO_METER) / rssi_diff;
+        double measured_power = calculate_measured_power(n->max_rssi,
+            (255 - n->max_proximity) * PROXIMITY_TO_METER);
+
+        n->rssi_distance_factor = measured_power;
+
         n->is_calibrated = 1;
         update_node_estimated_distance(n);
     }
@@ -133,7 +143,7 @@ void set_current_proximity(int proximity)
     current_proximity = proximity;
 }
 
-int is_calibration_start(int proximity)
+int is_valid_calibration(int proximity)
 {
     if (CALIBRATION_START_MIN <= proximity && proximity <= CALIBRATION_START_MAX)
         return 1;
@@ -141,22 +151,9 @@ int is_calibration_start(int proximity)
     return 0;
 }
 
-int check_calibration_start()
+int check_valid_calibration()
 {
-    return is_calibration_start(current_proximity);
-}
-
-int is_calibration_end(int proximity)
-{
-    if (CALIBRATION_END_MIN <= proximity && proximity <= CALIBRATION_END_MAX)
-        return 1;
-    
-    return 0;
-}
-
-int check_calibration_end()
-{
-    return is_calibration_end(current_proximity);
+    return is_valid_calibration(current_proximity);
 }
 
 int calibrate_node(uint16_t address, char *name, int proximity, int rssi)
@@ -171,42 +168,14 @@ int calibrate_node(uint16_t address, char *name, int proximity, int rssi)
     if (nodes_data[node_index].max_rssi < rssi)
         nodes_data[node_index].max_rssi = rssi;
 
-    if (proximity < nodes_data[node_index].min_proximity)
-        nodes_data[node_index].min_proximity = proximity;
-
-    if (rssi < nodes_data[node_index].min_rssi)
-        nodes_data[node_index].min_rssi = rssi;
-
-    if (check_calibration_start())
+    if (check_valid_calibration())
     {
+        int first_calibration = !nodes_data[node_index].is_calibrated;
+
         check_node_calibration(&nodes_data[node_index]);
         print_status_update();
         
-        if (nodes_data[node_index].start_calibrated == 0)
-        {
-            nodes_data[node_index].start_calibrated = 1;
-            return 1;
-        }
-        else
-        {
-            return 0;
-        }
-    }
-    
-    if (check_calibration_end())
-    {
-        check_node_calibration(&nodes_data[node_index]);
-        print_status_update();
-        
-        if (nodes_data[node_index].end_calibrated == 0)
-        {
-            nodes_data[node_index].end_calibrated = 1;
-            return 2;
-        }
-        else
-        {
-            return 0;
-        }
+        return first_calibration;
     }
 
     return -1;

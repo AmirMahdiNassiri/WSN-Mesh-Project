@@ -41,4 +41,4 @@ const char* get_bluetooth_name(void);
 bool mesh_is_initialized(void);
 void mesh_start(void);
 int mesh_init(void);
-void update_self_proximity(int);
+void update_self_sensor_values(int, int);

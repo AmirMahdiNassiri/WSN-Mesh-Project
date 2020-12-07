@@ -215,5 +215,5 @@ void main(void)
 		return;
 	}
 
-	start_proximity_work();
+	start_sensor_values_work();
 }

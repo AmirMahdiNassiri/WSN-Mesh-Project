@@ -47,7 +47,7 @@ struct font_info {
 };
 
 #define LONG_PRESS_TIMEOUT K_SECONDS(0.5)
-#define PROXIMITY_REFRESH_INTERVAL K_SECONDS(1)
+#define SENSOR_VALUES_REFRESH_INTERVAL K_SECONDS(1)
 
 #define STAT_COUNT 128
 
@@ -57,9 +57,10 @@ static uint8_t screen_id = SCREEN_MAIN;
 static const struct device *gpio;
 static struct k_delayed_work display_work;
 static struct k_delayed_work long_press_work;
-static struct k_delayed_work proximity_work;
+static struct k_delayed_work sensor_values_work;
 static char str_buf[256];
 static int proximity;
+static int temperature;
 
 static struct {
 	const struct device *dev;
@@ -497,6 +498,19 @@ static void long_press(struct k_work *work)
 	board_refresh_display();
 }
 
+static int get_temperature_value()
+{
+	struct sensor_value val[3];
+
+	if (get_hdc1010_val(val))
+	{
+		printk("Couldn't get temperature value.\n");
+		return -1;
+	}
+
+	return val[0].val1;
+}
+
 static int get_proximity_value()
 {
 	struct sensor_value val[3];
@@ -510,14 +524,16 @@ static int get_proximity_value()
 	return val[1].val1;
 }
 
-static void proximity_update(struct k_work *work)
+static void sensor_values_update(struct k_work *work)
 {
 	proximity = get_proximity_value();
-	update_self_proximity(proximity);
+	temperature = get_temperature_value();
+
+	update_self_sensor_values(proximity, temperature);
 
 	printk("Proximity update: %d\n", proximity);
 
-	k_delayed_work_submit(&proximity_work, PROXIMITY_REFRESH_INTERVAL);
+	k_delayed_work_submit(&sensor_values_work, SENSOR_VALUES_REFRESH_INTERVAL);
 }
 
 static bool button_is_pressed(void)
@@ -674,9 +690,9 @@ void board_refresh_display(void)
 	k_delayed_work_submit(&display_work, K_NO_WAIT);
 }
 
-void start_proximity_work()
+void start_sensor_values_work()
 {
-	k_delayed_work_submit(&proximity_work, K_NO_WAIT);
+	k_delayed_work_submit(&sensor_values_work, K_NO_WAIT);
 }
 
 int board_init(void)
@@ -711,7 +727,7 @@ int board_init(void)
 
 	k_delayed_work_init(&display_work, display_update);
 	k_delayed_work_init(&long_press_work, long_press);
-	k_delayed_work_init(&proximity_work, proximity_update);
+	k_delayed_work_init(&sensor_values_work, sensor_values_update);
 
 	pressed = button_is_pressed();
 

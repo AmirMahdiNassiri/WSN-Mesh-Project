@@ -24,4 +24,4 @@ int get_apds9960_val(struct sensor_value *val);
 int set_led_state(uint8_t id, bool state);
 int periphs_init(void);
 int board_init(void);
-void start_proximity_work(void);
+void start_sensor_values_work(void);
