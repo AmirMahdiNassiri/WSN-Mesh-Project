@@ -33,6 +33,7 @@
 
 #define NAME_SIZE         8
 #define PROXIMITY_SIZE 4
+#define TEMPERATURE_SIZE 4
 
 #define VALID_PROXIMITY_DELTA 10
 
@@ -300,6 +301,8 @@ static int sensor_pub_update(struct bt_mesh_model *mod){
 	
 	net_buf_simple_add_u8(msg, DEFAULT_TTL);
 
+	net_buf_simple_add_u8(msg, DEFAULT_TTL);
+
 	return 0;
 }
 
@@ -433,10 +436,14 @@ static void vnd_heartbeat(struct bt_mesh_model *model,
 	init_ttl = net_buf_simple_pull_u8(buf);
 	hops = init_ttl - ctx->recv_ttl + 1;
 
-	printk("Heartbeat from 0x%04x rssi %d over %u hop%s\n", 
-		ctx->addr, ctx->recv_rssi, hops, hops == 1U ? "" : "s");
+	// Fetch temperature
+	int received_temperature;
+	memcpy(&received_temperature, buf->data, TEMPERATURE_SIZE);
 
-	update_node_rssi(ctx->addr, ctx->recv_rssi);
+	printk("Heartbeat from 0x%04x rssi %d over %u hop%s temperature %d\n", 
+		ctx->addr, ctx->recv_rssi, hops, hops == 1U ? "" : "s", received_temperature);
+
+	update_node_data(ctx->addr, ctx->recv_rssi, received_temperature);
 
 	board_add_heartbeat(ctx->addr, hops);
 }
@@ -451,21 +458,23 @@ static const struct bt_mesh_model_op vnd_ops[] =
 };
 
 // Publish message update
-static int pub_update(struct bt_mesh_model *mod)
+static int vnd_pub_update(struct bt_mesh_model *mod)
 {
 	struct net_buf_simple *msg = mod->pub->msg;
 
-	printk("Preparing to send heartbeat\n");
+	printk("Preparing to send vendor heartbeat\n");
 
 	bt_mesh_model_msg_init(msg, OP_VND_HEARTBEAT);
 	//bt_mesh_model_msg_init(msg, BT_MESH_MODEL_OP_SENS_GET);
 	net_buf_simple_add_u8(msg, DEFAULT_TTL);
 
+	net_buf_simple_add_mem(msg, &self_temperature, TEMPERATURE_SIZE);
+
 	return 0;
 }
 
 // Define publish model
-BT_MESH_MODEL_PUB_DEFINE(vnd_pub, pub_update, 3 + 1);
+BT_MESH_MODEL_PUB_DEFINE(vnd_pub, vnd_pub_update, 3 + 1);
 
 // Element vendor models
 static struct bt_mesh_model vnd_models[] = 
@@ -556,6 +565,9 @@ void update_self_sensor_values(int proximity, int temperature)
 {
 	self_proximity = proximity;
 	self_temperature = temperature;
+
+	set_self_node_proximity(self_proximity);
+	set_self_node_temperature(self_temperature);
 }
 
 void mesh_send_calibration(int proximity)

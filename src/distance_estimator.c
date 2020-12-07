@@ -22,7 +22,9 @@ const int ENVIRONMENTAL_FACTOR = 2 * 10;
 
 // ======================================== Global Variables ======================================== //
 
-int current_proximity;
+int self_proximity;
+int self_temperature;
+float average_node_temperature;
 
 int current_nodes = 0;
 struct node_data nodes_data[MAX_NODES];
@@ -107,6 +109,25 @@ double calculate_measured_power(int rssi, float distance)
     return measured_power;
 }
 
+void update_average_temperature()
+{
+    float new_value = 0;
+
+    // Add other nodes temperature
+    for (int i = 0; i < current_nodes; i++)
+    {
+        new_value += nodes_data[i].temperature;
+    }
+
+    // Add self temperature
+    new_value += self_temperature;
+
+    // Get the average
+    new_value /= current_nodes + 1;
+
+    average_node_temperature = new_value;
+}
+
 void update_node_estimated_distance(struct node_data *n)
 {
     if (n->is_calibrated == 0)
@@ -138,9 +159,14 @@ void check_node_calibration(struct node_data *n)
     }
 }
 
-void set_current_proximity(int proximity)
+void set_self_node_proximity(int proximity)
 {
-    current_proximity = proximity;
+    self_proximity = proximity;
+}
+
+void set_self_node_temperature(int temperature)
+{
+    self_temperature = temperature;
 }
 
 int is_valid_calibration(int proximity)
@@ -153,12 +179,12 @@ int is_valid_calibration(int proximity)
 
 int check_valid_calibration()
 {
-    return is_valid_calibration(current_proximity);
+    return is_valid_calibration(self_proximity);
 }
 
 int calibrate_node(uint16_t address, char *name, int proximity, int rssi)
 {
-    set_current_proximity(proximity);
+    set_self_node_proximity(proximity);
 
     int node_index = add_node_if_not_exists(address, name);
 
@@ -181,13 +207,15 @@ int calibrate_node(uint16_t address, char *name, int proximity, int rssi)
     return -1;
 }
 
-void update_node_rssi(uint16_t address, int rssi)
+void update_node_data(uint16_t address, int rssi, int temperature)
 {
     int node_index = find_node(address);
 
     if (node_index != -1)
     {
         nodes_data[node_index].last_rssi = rssi;
+        nodes_data[node_index].temperature = temperature;
+        update_average_temperature();
         update_node_estimated_distance(&nodes_data[node_index]);
         print_status_update();
     }

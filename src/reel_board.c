@@ -455,6 +455,10 @@ static void my_data(k_timeout_t interval)
 		print_line(FONT_SMALL, line++, str_buf, len, false);
 	}
 
+	// Output average temperature
+	len = snprintf(str_buf, sizeof(str_buf), "Avg. temperature: %.1f\n", average_node_temperature);
+	print_line(FONT_SMALL, 6, str_buf, len, false);
+
 	cfb_framebuffer_finalize(display_dev);
 	k_delayed_work_submit(&display_work, interval);
 
