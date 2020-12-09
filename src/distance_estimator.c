@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <inttypes.h> /* strtoimax */
 
 #include "distance_estimator.h"
 
@@ -30,6 +31,48 @@ int current_nodes = 0;
 struct node_data nodes_data[MAX_NODES];
 
 // ======================================== Functions ======================================== //
+
+int str_to_uint16(const char *str, uint16_t *result)
+{
+    char *end;
+    errno = 0;
+    intmax_t val = strtoimax(str, &end, 10);
+
+    if (errno == ERANGE || val < 0 || val > UINT16_MAX || end == str || *end != '\0')
+        return false;
+
+    *result = (uint16_t) val;
+
+
+	// char* delimeter = ";";
+	// char string[100] = "Hello!;We;are;103.456;-20;7bx9;learning;about;strtok";
+    // // Extract the first token
+    // char * token = strtok(string, delimeter);
+    // // loop through the string to extract all other tokens
+    // while( token != NULL ) {
+    //     printf( " %s\n", token ); //printing each token
+    //     token = strtok(NULL, delimeter);
+    // }
+
+
+// 	char *str = "12345";
+
+//     int  y = atoi(str); // Using atoi()
+//    printf("\nThe value of y : %d", y);
+
+// 	char *test = "12.11";
+// 	double temp = strtod(test, NULL);
+// 	float ftemp = atof(test);
+// 	printf("\nprice: %f, %f",temp,ftemp);
+
+// 	uint16_t addr;
+
+// 	str_to_uint16("31642", &addr);
+
+// 	printf("CHAGHAL: 0x%04x", addr);
+
+    return true;
+}
 
 void print_node_status(struct node_data n)
 {
@@ -186,27 +229,45 @@ int is_valid_calibration(int proximity)
     return 0;
 }
 
-int calibrate_node(uint16_t address, char *name, int proximity, int rssi)
+void start_calibrating_node(uint16_t address, char *name, int proximity, int rssi)
 {
     int node_index = add_node_if_not_exists(address, name);
 
     node_data *node = &nodes_data[node_index];
 
-    if (is_valid_calibration(proximity) && node->calibration_step < CALIBRATION_STEPS)
+    node->is_calibrated = 0;
+    node->calibration_step = 0;
+
+    calibrate_node(address, proximity, rssi);
+}
+
+int calibrate_node(uint16_t address, int proximity, int rssi)
+{
+    int node_index = find_node(address);
+
+    if (node_index == -1)
+    {
+        printf("Couldn't find node with address: 0x%04x Please start calibration again.", address);
+        return -1;
+    }
+
+    node_data *node = &nodes_data[node_index];
+
+    if (!is_valid_calibration(proximity))
+        return -1;
+
+    if (node->calibration_step < CALIBRATION_STEPS)
     {
         node->proximity_values[node->calibration_step] = proximity;
         node->rssi_values[node->calibration_step] = rssi;
         node->calibration_step++;
 
-        int first_calibration = !node->is_calibrated;
         check_node_calibration(node);
-
-        print_status_update();
-        
-        return first_calibration;
     }
 
-    return -1;
+    print_status_update();
+
+    return node->is_calibrated;
 }
 
 void update_node_data(uint16_t address, int rssi, int temperature)

@@ -33,7 +33,7 @@ struct led_onoff_state {
 	int64_t last_msg_timestamp;
 };
 
-void mesh_send_calibration(int);
+void mesh_start_calibration(int);
 void mesh_send_baduser(void);
 
 uint16_t mesh_get_addr(void);

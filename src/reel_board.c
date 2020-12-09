@@ -16,6 +16,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/mesh/access.h>
@@ -535,8 +536,6 @@ static void sensor_values_update(struct k_work *work)
 
 	update_self_sensor_values(proximity, temperature);
 
-	printk("Proximity update: %d\n", proximity);
-
 	k_delayed_work_submit(&sensor_values_work, SENSOR_VALUES_REFRESH_INTERVAL);
 }
 
@@ -599,7 +598,7 @@ static void button_interrupt(const struct device *dev,
 			} 
 			else 
 			{
-				mesh_send_calibration(proximity);
+				mesh_start_calibration(proximity);
 			}
 		}
 		return;

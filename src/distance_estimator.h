@@ -38,5 +38,6 @@ void initialize_estimator(void);
 int is_valid_calibration(int);
 void set_self_node_proximity(int);
 void set_self_node_temperature(int);
-int calibrate_node(uint16_t, char*, int, int);
+void start_calibrating_node(uint16_t, char*, int, int);
+int calibrate_node(uint16_t, int, int);
 void update_node_data(uint16_t, int, int);
