@@ -16,6 +16,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/mesh/access.h>
@@ -60,7 +61,9 @@ static struct k_delayed_work long_press_work;
 static struct k_delayed_work sensor_values_work;
 static char str_buf[256];
 static int proximity;
-static int temperature;
+static int light;
+static double temperature;
+static int humidity;
 
 static struct {
 	const struct device *dev;
@@ -349,6 +352,44 @@ static void show_statistics(void)
 	cfb_framebuffer_finalize(display_dev);
 }
 
+static int update_hdc1010_values()
+{
+	struct sensor_value val[3];
+
+	if (get_hdc1010_val(val))
+	{
+		printk("Couldn't get temperature value.\n");
+
+		return -1;
+	}
+	else
+	{
+		temperature = sensor_value_to_double(&val[0]);
+		humidity = val[1].val1;
+
+		return 0;
+	}
+}
+
+static int update_apds9960_values()
+{
+	struct sensor_value val[3];
+
+	if (get_apds9960_val(val))
+	{
+		printk("Couldn't get proximity value.\n");
+
+		return -1;
+	}
+	else
+	{
+		light = val[0].val1;
+		proximity = val[1].val1;
+
+		return 0;
+	}
+}
+
 static void show_sensors_data(k_timeout_t interval)
 {
 	struct sensor_value val[3];
@@ -358,20 +399,20 @@ static void show_sensors_data(k_timeout_t interval)
 	cfb_framebuffer_clear(display_dev, false);
 
 	/* hdc1010 */
-	if (get_hdc1010_val(val)) {
+	if (update_hdc1010_values()) 
+	{
 		goto _error_get;
 	}
 
-	len = snprintf(str_buf, sizeof(str_buf), "Temperature:%d.%d C\n",
-		       val[0].val1, val[0].val2 / 100000);
+	len = snprintf(str_buf, sizeof(str_buf), "Temperature:%.2f C\n", temperature);
 	print_line(FONT_SMALL, line++, str_buf, len, false);
 
-	len = snprintf(str_buf, sizeof(str_buf), "Humidity:%d%%\n",
-		       val[1].val1);
+	len = snprintf(str_buf, sizeof(str_buf), "Humidity:%d%%\n", humidity);
 	print_line(FONT_SMALL, line++, str_buf, len, false);
 
 	/* mma8652 */
-	if (get_mma8652_val(val)) {
+	if (get_mma8652_val(val)) 
+	{
 		goto _error_get;
 	}
 
@@ -388,13 +429,14 @@ static void show_sensors_data(k_timeout_t interval)
 	print_line(FONT_SMALL, line++, str_buf, len, false);
 
 	/* apds9960 */
-	if (get_apds9960_val(val)) {
+	if (update_apds9960_values()) 
+	{
 		goto _error_get;
 	}
 
-	len = snprintf(str_buf, sizeof(str_buf), "Light :%d\n", val[0].val1);
+	len = snprintf(str_buf, sizeof(str_buf), "Light :%d\n", light);
 	print_line(FONT_SMALL, line++, str_buf, len, false);
-	len = snprintf(str_buf, sizeof(str_buf), "Proximity:%d\n", val[1].val1);
+	len = snprintf(str_buf, sizeof(str_buf), "Proximity:%d\n", proximity);
 	print_line(FONT_SMALL, line++, str_buf, len, false);
 
 	cfb_framebuffer_finalize(display_dev);
@@ -449,14 +491,14 @@ static void my_data(k_timeout_t interval)
 	for (int i = 0; i < current_nodes; i++)
 	{
 		len = snprintf(str_buf, sizeof(str_buf), "%s @%04x S:%d D:%.2f\n", 
-			nodes_data[i].name, nodes_data[i].address, 
-			nodes_data[i].last_rssi, nodes_data[i].estimated_distance);
+			neighbor_nodes_data[i].name, neighbor_nodes_data[i].address, 
+			neighbor_nodes_data[i].rssi, neighbor_nodes_data[i].distance);
 
 		print_line(FONT_SMALL, line++, str_buf, len, false);
 	}
 
 	// Output average temperature
-	len = snprintf(str_buf, sizeof(str_buf), "Avg. temperature: %.1f\n", average_node_temperature);
+	len = snprintf(str_buf, sizeof(str_buf), "Avg. temperature: %.2f\n", average_node_temperature);
 	print_line(FONT_SMALL, 6, str_buf, len, false);
 
 	cfb_framebuffer_finalize(display_dev);
@@ -502,40 +544,17 @@ static void long_press(struct k_work *work)
 	board_refresh_display();
 }
 
-static int get_temperature_value()
-{
-	struct sensor_value val[3];
-
-	if (get_hdc1010_val(val))
-	{
-		printk("Couldn't get temperature value.\n");
-		return -1;
-	}
-
-	return val[0].val1;
-}
-
-static int get_proximity_value()
-{
-	struct sensor_value val[3];
-
-	if (get_apds9960_val(val))
-	{
-		printk("Couldn't get proximity value.\n");
-		return -1;
-	}
-
-	return val[1].val1;
-}
-
 static void sensor_values_update(struct k_work *work)
 {
-	proximity = get_proximity_value();
-	temperature = get_temperature_value();
+	update_hdc1010_values();
+	update_apds9960_values();
 
-	update_self_sensor_values(proximity, temperature);
+	self_node_data.proximity = proximity;
+	self_node_data.light = light;
+	self_node_data.temperature = temperature;
+	self_node_data.humidity = humidity;
 
-	printk("Proximity update: %d\n", proximity);
+	update_average_temperature();
 
 	k_delayed_work_submit(&sensor_values_work, SENSOR_VALUES_REFRESH_INTERVAL);
 }
@@ -599,7 +618,7 @@ static void button_interrupt(const struct device *dev,
 			} 
 			else 
 			{
-				mesh_send_calibration(proximity);
+				mesh_send_calibration();
 			}
 		}
 		return;

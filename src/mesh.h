@@ -33,12 +33,12 @@ struct led_onoff_state {
 	int64_t last_msg_timestamp;
 };
 
-void mesh_send_calibration(int);
+void mesh_send_calibration(void);
 void mesh_send_baduser(void);
 
 uint16_t mesh_get_addr(void);
 const char* get_bluetooth_name(void);
+void copy_bluetooth_name(char*);
 bool mesh_is_initialized(void);
 void mesh_start(void);
 int mesh_init(void);
-void update_self_sensor_values(int, int);

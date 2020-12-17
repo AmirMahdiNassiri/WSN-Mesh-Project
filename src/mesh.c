@@ -31,6 +31,7 @@
 #define APP_IDX           0x000
 #define FLAGS             0
 
+#define TTL_SIZE 1
 #define NAME_SIZE         8
 #define PROXIMITY_SIZE 4
 #define TEMPERATURE_SIZE 4
@@ -63,9 +64,6 @@ static struct k_work calibration_work;
 static struct k_work baduser_work;
 static struct k_work mesh_start_work;
 
-static int self_proximity;
-static int self_temperature;
-
 /* Definitions of models user data (Start) */
 static struct led_onoff_state led_onoff_state[] = {
 	/* Use LED 0 for this model */
@@ -75,6 +73,12 @@ static struct led_onoff_state led_onoff_state[] = {
 const char* get_bluetooth_name()
 {
 	return bt_get_name();
+}
+
+void copy_bluetooth_name(char *buffer)
+{
+	const char* bluetooth_name = get_bluetooth_name();
+	strcpy(self_node_data.name, bluetooth_name);
 }
 
 static void heartbeat(uint8_t hops, uint16_t feat)
@@ -340,7 +344,7 @@ static struct bt_mesh_model root_models[] =
 
 int is_in_vicinity(int other_node_proximity)
 {
-	if (abs(other_node_proximity - self_proximity) < VALID_PROXIMITY_DELTA)
+	if (abs(other_node_proximity - self_node_data.proximity) < VALID_PROXIMITY_DELTA)
 		return 1;
 
 	return 0;
@@ -429,21 +433,26 @@ static void vnd_heartbeat(struct bt_mesh_model *model,
 
 	if (ctx->addr == bt_mesh_model_elem(model)->addr) 
 	{
+		self_node_data.address = ctx->addr;
 		printk("Ignoring heartbeat from self.\n");
+
 		return;
 	}
 
 	init_ttl = net_buf_simple_pull_u8(buf);
 	hops = init_ttl - ctx->recv_ttl + 1;
 
-	// Fetch temperature
-	int received_temperature;
-	memcpy(&received_temperature, buf->data, TEMPERATURE_SIZE);
+	printk("Heartbeat from 0x%04x rssi %d size %d over %u hop%s.\n", 
+		ctx->addr, ctx->recv_rssi, buf->len, hops, hops == 1U ? "" : "s");
 
-	printk("Heartbeat from 0x%04x rssi %d over %u hop%s temperature %d\n", 
-		ctx->addr, ctx->recv_rssi, hops, hops == 1U ? "" : "s", received_temperature);
+	char message[MAX_MESSAGE_SIZE];
 
-	update_node_data(ctx->addr, ctx->recv_rssi, received_temperature);
+	memcpy(message, buf->data, buf->len);
+	message[(buf->len - TTL_SIZE) + 1] = '\0';
+
+	printf("Received message: '%s'\n", message);
+
+	update_node_data(ctx->addr, ctx->recv_rssi, message);
 
 	board_add_heartbeat(ctx->addr, hops);
 }
@@ -468,9 +477,23 @@ static int vnd_pub_update(struct bt_mesh_model *mod)
 	//bt_mesh_model_msg_init(msg, BT_MESH_MODEL_OP_SENS_GET);
 	net_buf_simple_add_u8(msg, DEFAULT_TTL);
 
-	net_buf_simple_add_mem(msg, &self_temperature, TEMPERATURE_SIZE);
+	char* message = (char*) malloc(MAX_MESSAGE_SIZE * sizeof(char));
 
-	return 0;
+	if (message == NULL)
+	{
+		printf("Publication canceled: Couldn't allocate message memory.");
+		return -1;
+	}
+	else
+	{
+		get_self_node_message(message);
+		printf("Outgoing message with size %lu: '%s'\n", (long unsigned int) strlen(message), message);
+
+		net_buf_simple_add_mem(msg, message, strlen(message));
+		free(message);
+		
+		return 0;
+	}
 }
 
 // Define publish model
@@ -514,9 +537,9 @@ static size_t first_name_len(const char *name)
 
 static void send_calibration(struct k_work *work)
 {
-	printk("Attempting to send_calibration with %d proximity value.\n", self_proximity);
+	printk("Attempting to send_calibration with %d proximity value.\n", self_node_data.proximity);
 
-	if (is_valid_calibration(self_proximity))
+	if (is_valid_calibration(self_node_data.proximity))
 	{
 		NET_BUF_SIMPLE_DEFINE(msg, 3 + PROXIMITY_SIZE + NAME_SIZE + 4);
 
@@ -531,7 +554,7 @@ static void send_calibration(struct k_work *work)
 		bt_mesh_model_msg_init(&msg, OP_VND_CALIBRATION);
 
 		// Add proximity data
-		net_buf_simple_add_mem(&msg, &self_proximity, PROXIMITY_SIZE);
+		net_buf_simple_add_mem(&msg, &self_node_data.proximity, PROXIMITY_SIZE);
 
 		// Add bluetooth name
 		const char* bluetooth_name = get_bluetooth_name();
@@ -550,30 +573,19 @@ static void send_calibration(struct k_work *work)
 	{
 		// No board in the right vicinity found
 		printk("Bad proximity for calibration (p=%d). Proximity should be in the range (%d<p<%d) for calibration.\n", 
-			self_proximity, CALIBRATION_START_MIN, CALIBRATION_START_MAX);
+			self_node_data.proximity, CALIBRATION_START_MIN, CALIBRATION_START_MAX);
 
 		char str_buf[256];
 
-		snprintf(str_buf, sizeof(str_buf), "! prox=%d ! (%d<p<%d)", self_proximity,
+		snprintf(str_buf, sizeof(str_buf), "! prox=%d ! (%d<p<%d)", self_node_data.proximity,
 			CALIBRATION_START_MIN, CALIBRATION_START_MAX);
 
 		board_show_text(str_buf, false, K_SECONDS(1));
 	}
 }
 
-void update_self_sensor_values(int proximity, int temperature)
+void mesh_send_calibration()
 {
-	self_proximity = proximity;
-	self_temperature = temperature;
-
-	set_self_node_proximity(self_proximity);
-	set_self_node_temperature(self_temperature);
-}
-
-void mesh_send_calibration(int proximity)
-{
-	self_proximity = proximity;
-
 	k_work_submit(&calibration_work);
 }
 
@@ -624,7 +636,7 @@ static int provision_and_configure(void)
 		.addr = GROUP_ADDR,
 		.app_idx = APP_IDX,
 		.ttl = DEFAULT_TTL,
-		.period = BT_MESH_PUB_PERIOD_SEC(3),
+		.period = BT_MESH_PUB_PERIOD_SEC(10),
 	};
 
 	uint8_t dev_key[16];
