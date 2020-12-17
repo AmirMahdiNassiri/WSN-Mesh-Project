@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "distance_estimator.h"
+#include "mesh_app.h"
 #include "mesh.h"
 
 // ======================================== CONST Configurations ======================================== //
@@ -43,7 +43,7 @@ void print_node_status(struct node_data n)
 
 void print_status_update()
 {
-    printk("=============== DISTANCE ESTIMATOR STATUS UPDATE ===============\n");
+    printk("==================== MESH APP STATUS UPDATE ====================\n");
 
     printk("current_nodes: %d\n", current_nodes);
 
@@ -56,7 +56,7 @@ void print_status_update()
     printk("================================================================\n");
 }
 
-void initialize_estimator()
+void initialize_app()
 {
     for (int i = 0; i < MAX_NODES; i++)
     {

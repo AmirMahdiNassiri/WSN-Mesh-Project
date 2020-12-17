@@ -40,7 +40,7 @@ extern int current_nodes;
 extern struct node_data neighbor_nodes_data[MAX_NODES];
 extern double average_node_temperature;
 
-void initialize_estimator(void);
+void initialize_app(void);
 int is_valid_calibration(int);
 int calibrate_node(uint16_t, char*, int, int);
 void get_self_node_message(char*);

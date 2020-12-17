@@ -12,7 +12,7 @@
 
 #include "mesh.h"
 #include "board.h"
-#include "distance_estimator.h"
+#include "mesh_app.h"
 
 // ======================================== CONST Configurations ======================================== //
 
@@ -741,8 +741,8 @@ int mesh_init(void)
 	k_work_init(&baduser_work, send_baduser);
 	k_work_init(&mesh_start_work, start_mesh);
 
-	initialize_estimator();
-	printk("Distance estimator initialized.\n");
+	initialize_app();
+	printk("Mesh app initialized.\n");
 
 	return bt_mesh_init(&prov, &comp);
 }

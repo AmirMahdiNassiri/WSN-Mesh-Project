@@ -23,7 +23,7 @@
 
 #include "mesh.h"
 #include "board.h"
-#include "distance_estimator.h"
+#include "mesh_app.h"
 
 enum font_size {
 	FONT_SMALL = 0,
