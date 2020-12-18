@@ -34,11 +34,12 @@ struct node_data neighbor_nodes_data[MAX_NODES];
 
 void print_node_status(struct node_data n)
 {
-    printf("name: %s address: 0x%04x calibration_step: %d is_calibrated: %d rssi_distance_factor: %.1f rssi: %d distance: %.1f temperature: %.1f humidity: %d\n", 
+    printf("name: %s address: 0x%04x calibration_step: %d is_calibrated: %d rssi_distance_factor: %.1f rssi: %d distance: %.1f temperature: %.1f humidity: %d neighbor_distances: '%s'\n", 
         n.name, n.address, n.calibration_step,
         n.is_calibrated, n.rssi_distance_factor,
         n.rssi, n.distance, 
-        n.temperature, n.humidity);
+        n.temperature, n.humidity,
+        n.neighbor_distances);
 }
 
 void print_status_update()
@@ -76,6 +77,11 @@ void initialize_app()
         {
             n.calibration_proximity_values[j] = 0;
             n.calibration_rssi_values[j] = 0;
+        }
+
+        for (int k = 0; k < NEIGHBOR_DISTANCES_LENGTH; k++)
+        {
+            n.neighbor_distances[k] = '\0';
         }
         
         neighbor_nodes_data[i] = n;
@@ -259,12 +265,22 @@ void update_node_data(uint16_t address, int rssi, char* message_string)
 
     neighbor_nodes_data[node_index].rssi = rssi;
 
-    // Get the first segment containing node sensor data
-    char* token = strtok(message_string, ";");
+    char* parsing_copy = (char*)malloc(strlen(message_string) + 1);
 
-    // Iterate through the values
+    if (parsing_copy == NULL)
+    {
+        printf("Couldn't allocate memory for parsing_copy of the message.");
+        return;
+    }
+
+    strcpy(parsing_copy, message_string);
+
+    // Get the first segment containing node sensor data
+    char* token = strtok(parsing_copy, ";");
+
+    // Iterate through the node sensor values
     char* delimeter = ",";
-    token = strtok(message_string, delimeter);
+    token = strtok(parsing_copy, delimeter);
     int token_index = 0;
 
     while (token != NULL) 
@@ -287,6 +303,13 @@ void update_node_data(uint16_t address, int rssi, char* message_string)
         token = strtok(NULL, delimeter);
         token_index++;
     }
+
+    // Get the second segment containing node neighbor distances
+    strcpy(parsing_copy, message_string);
+    token = strtok(parsing_copy, ";");
+    token = strtok(NULL, ";");
+
+    strcpy(neighbor_nodes_data[node_index].neighbor_distances, token);
 
     update_average_temperature();
     update_node_estimated_distance(&neighbor_nodes_data[node_index]);

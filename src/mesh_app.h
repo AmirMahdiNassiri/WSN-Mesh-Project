@@ -5,6 +5,15 @@
 #define CALIBRATION_STEPS 5
 #define MAX_MESSAGE_SIZE 512
 
+// neighbor_distances string contains the following information:
+// "NeighborCount,<ID,Distance>*NeighborCount"
+// NeighborCount -> 2 characters
+// , -> 1 character
+// ID -> 4 characters
+// , -> 1 character
+// distance (%.1f) -> 5 characters
+#define NEIGHBOR_DISTANCES_LENGTH (2 + 1 + (4 + 1 + 5) * MAX_NODES)
+
 extern const int CALIBRATION_START_MIN;
 extern const int CALIBRATION_START_MAX;
 extern const int CALIBRATION_END_MIN;
@@ -27,6 +36,9 @@ struct node_data
 
     double temperature;
     int humidity;
+
+    // See the comment for NEIGHBOR_DISTANCES_LENGTH
+    char neighbor_distances[NEIGHBOR_DISTANCES_LENGTH];
 
     int proximity;
     int light;
