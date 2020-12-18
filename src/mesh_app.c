@@ -32,6 +32,29 @@ struct node_data neighbor_nodes_data[MAX_NODES];
 
 // ======================================== Functions ======================================== //
 
+void get_mesh_summary(char*);
+
+void print_mesh_summary()
+{
+    int length = (current_nodes + 1) * MAX_MESSAGE_SIZE;
+    char *data = (char*)malloc(length * sizeof(char));
+
+    if (data == NULL)
+    {
+        printf("Couldn't allocate memory for data.");
+        return;
+    }
+
+    for (int i = 0; i < length; i++)
+    {
+        data[i] = '\0';
+    }
+
+    get_mesh_summary(data);
+
+    printf("%s", data);
+}
+
 void print_node_status(struct node_data n)
 {
     printf("name: %s address: 0x%04x calibration_step: %d is_calibrated: %d rssi_distance_factor: %.1f rssi: %d distance: %.1f temperature: %.1f humidity: %d neighbor_distances: '%s'\n", 
@@ -53,7 +76,11 @@ void print_status_update()
         printk("%d) ", i);
         print_node_status(neighbor_nodes_data[i]);
     }
-    
+
+    printf("--------------------------------\n");
+    printf("Mesh app summary:\n");
+    print_mesh_summary();
+
     printk("================================================================\n");
 }
 
@@ -79,10 +106,20 @@ void initialize_app()
             n.calibration_rssi_values[j] = 0;
         }
 
+        n.rssi_distance_factor = 0;
+        n.rssi = 0;
+        n.distance = 0;
+        n.temperature = 0;
+        n.humidity = 0;
+        n.proximity = 0;
+        n.light = 0;
+
         for (int k = 0; k < NEIGHBOR_DISTANCES_LENGTH; k++)
         {
             n.neighbor_distances[k] = '\0';
         }
+
+        n.neighbor_distances[0] = '0';
         
         neighbor_nodes_data[i] = n;
     }
@@ -223,37 +260,30 @@ int calibrate_node(uint16_t address, char *name, int proximity, int rssi)
 void get_self_node_message(char *buffer)
 {
     if (strlen(self_node_data.name) == 0)
-    {
         copy_bluetooth_name(self_node_data.name);
-    }
 
-    if (current_nodes > 0)
+    char neighbor_distances[NEIGHBOR_DISTANCES_LENGTH];
+    sprintf(neighbor_distances, "%d", current_nodes);
+
+    for (int i = 0; i < current_nodes; i++)
     {
-        char neighbor_distances[10 * current_nodes];
+        char node_distance[20];
 
-        for (int i = 0; i < current_nodes; i++)
-        {
-            char node_distance[400];
-            sprintf(node_distance, ",%04x:%.1f", 
-                neighbor_nodes_data[i].address, neighbor_nodes_data[i].distance);
+        sprintf(node_distance, ",%04x:%.1f", 
+            neighbor_nodes_data[i].address, neighbor_nodes_data[i].distance);
 
-            strcpy(neighbor_distances, node_distance);
-        }
-
-        sprintf(buffer, "%s,%.1f,%d;%d%s", 
-            self_node_data.name,
-            self_node_data.temperature,
-            self_node_data.humidity,
-            current_nodes, neighbor_distances);
+        strcat(neighbor_distances, node_distance);
     }
-    else
-    {
-        sprintf(buffer, "%s,%.1f,%d;%d", 
-            self_node_data.name,
-            self_node_data.temperature,
-            self_node_data.humidity,
-            current_nodes);
-    }
+
+    strcpy(self_node_data.neighbor_distances, neighbor_distances);
+
+    sprintf(buffer, "%s,%.1f,%d;%s", 
+        self_node_data.name,
+        self_node_data.temperature,
+        self_node_data.humidity,
+        self_node_data.neighbor_distances);
+    
+    print_status_update();
 }
 
 void update_node_data(uint16_t address, int rssi, char* message_string)
@@ -314,4 +344,56 @@ void update_node_data(uint16_t address, int rssi, char* message_string)
     update_average_temperature();
     update_node_estimated_distance(&neighbor_nodes_data[node_index]);
     print_status_update();
+}
+
+void encode_node_data(struct node_data n, char* buffer)
+{
+    sprintf(buffer, "%04x,%.1f,%d;%s", 
+        n.address,
+        n.temperature,
+        n.humidity,
+        n.neighbor_distances);
+}
+
+void get_mesh_summary(char* buffer)
+{
+    char* node_buffer = (char*)malloc(MAX_MESSAGE_SIZE * sizeof(char));
+
+    if (node_buffer == NULL)
+    {
+        printf("Couldn't allocate memory for node_buffer.");
+        return;
+    }
+
+    encode_node_data(self_node_data, node_buffer);
+    strcat(buffer, node_buffer);
+    strcat(buffer, "\n");
+
+    for (int i = 0; i < current_nodes; i++)
+    {
+        encode_node_data(neighbor_nodes_data[i], node_buffer);
+        strcat(buffer, node_buffer);
+        strcat(buffer, "\n");
+    }
+}
+
+void post_sensor_data()
+{
+    int length = (current_nodes + 1) * MAX_MESSAGE_SIZE;
+    char *data = (char*)malloc(length * sizeof(char));
+
+    if (data == NULL)
+    {
+        printf("Couldn't allocate memory for data.");
+        return;
+    }
+
+    for (int i = 0; i < length; i++)
+    {
+        data[i] = '\0';
+    }
+
+    get_mesh_summary(data);
+
+    // Boss' code will go here..
 }

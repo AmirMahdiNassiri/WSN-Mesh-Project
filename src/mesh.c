@@ -296,10 +296,11 @@ static void sensor_series_get(struct bt_mesh_model *model,
 	/* TODO */
 }
 
-static int sensor_pub_update(struct bt_mesh_model *mod){
+static int sensor_pub_update(struct bt_mesh_model *mod)
+{
 	struct net_buf_simple *msg = mod->pub->msg;
 
-	printk("Preparing to send heartbeat\n");
+	// printk("Preparing to send heartbeat\n");
 
 	bt_mesh_model_msg_init(msg, BT_MESH_MODEL_OP_SENS_GET);
 	
@@ -357,7 +358,7 @@ static void vnd_calibration(struct bt_mesh_model *model,
 {
 	if (ctx->addr == bt_mesh_model_elem(model)->addr) 
 	{
-		printk("Ignoring calibration from self.\n");
+		// printk("Ignoring calibration from self.\n");
 		return;
 	}
 
@@ -434,7 +435,7 @@ static void vnd_heartbeat(struct bt_mesh_model *model,
 	if (ctx->addr == bt_mesh_model_elem(model)->addr) 
 	{
 		self_node_data.address = ctx->addr;
-		printk("Ignoring heartbeat from self.\n");
+		// printk("Ignoring heartbeat from self.\n");
 
 		return;
 	}
@@ -442,15 +443,15 @@ static void vnd_heartbeat(struct bt_mesh_model *model,
 	init_ttl = net_buf_simple_pull_u8(buf);
 	hops = init_ttl - ctx->recv_ttl + 1;
 
-	printk("Heartbeat from 0x%04x rssi %d size %d over %u hop%s.\n", 
-		ctx->addr, ctx->recv_rssi, buf->len, hops, hops == 1U ? "" : "s");
+	// printk("Heartbeat from 0x%04x rssi %d size %d over %u hop%s.\n", 
+	// 	ctx->addr, ctx->recv_rssi, buf->len, hops, hops == 1U ? "" : "s");
 
 	char message[MAX_MESSAGE_SIZE];
 
 	memcpy(message, buf->data, buf->len);
 	message[(buf->len - TTL_SIZE) + 1] = '\0';
 
-	printf("Received message: '%s'\n", message);
+	// printf("Received message: '%s'\n", message);
 
 	update_node_data(ctx->addr, ctx->recv_rssi, message);
 
@@ -471,7 +472,7 @@ static int vnd_pub_update(struct bt_mesh_model *mod)
 {
 	struct net_buf_simple *msg = mod->pub->msg;
 
-	printk("Preparing to send vendor heartbeat\n");
+	// printk("Preparing to send vendor heartbeat\n");
 
 	bt_mesh_model_msg_init(msg, OP_VND_HEARTBEAT);
 	//bt_mesh_model_msg_init(msg, BT_MESH_MODEL_OP_SENS_GET);
@@ -487,7 +488,7 @@ static int vnd_pub_update(struct bt_mesh_model *mod)
 	else
 	{
 		get_self_node_message(message);
-		printf("Outgoing message with size %lu: '%s'\n", (long unsigned int) strlen(message), message);
+		// printf("Outgoing message with size %lu: '%s'\n", (long unsigned int) strlen(message), message);
 
 		net_buf_simple_add_mem(msg, message, strlen(message));
 		free(message);

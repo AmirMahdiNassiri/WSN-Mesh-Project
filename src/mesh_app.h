@@ -3,7 +3,6 @@
 #define NAME_SIZE 8
 #define MAX_NODES 10
 #define CALIBRATION_STEPS 5
-#define MAX_MESSAGE_SIZE 512
 
 // neighbor_distances string contains the following information:
 // "NeighborCount,<ID,Distance>*NeighborCount"
@@ -13,6 +12,9 @@
 // , -> 1 character
 // distance (%.1f) -> 5 characters
 #define NEIGHBOR_DISTANCES_LENGTH (2 + 1 + (4 + 1 + 5) * MAX_NODES)
+
+// Message contains self node data + neighbor distances
+#define MAX_MESSAGE_SIZE (100 + NEIGHBOR_DISTANCES_LENGTH)
 
 extern const int CALIBRATION_START_MIN;
 extern const int CALIBRATION_START_MAX;
