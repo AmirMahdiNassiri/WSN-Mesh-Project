@@ -12,6 +12,8 @@ The [Reel Board]s connected via this project transmit sensor values such as:
 
 Additionally, the distance between the nodes is estimated and reported in fractional metres.
 
+![alt text][Pic 3]
+
 # Zephyr Version
 
 The project was built and tested using **Zephyr version 2.4**. Here is the information of the Zephyr version file:
@@ -53,7 +55,11 @@ Also, during the first deployment, the boards need to be configured via [Nordic 
 # Calibration
 The boards require a **calibration step** before they can estimate their distance and generate the values. 
 
-The calibration step involves putting two boards **facing each other in close vicinity** (around 1 to 2 centimetres) and pressing the button on one of them. The board sends calibration data to the other device, triggering calibration data to be sent by the other one as well. During the calibration, **5 Bluetooth messages** are transmitted from each of the boards, containing the proximity values. After the calibration, the boards are able to estimate their distance from each other with **high accuracy** (± 20 cm). The distance is estimated by the **RSSI** values and can have a higher error by the fluctuations in the signal strength.
+The calibration step involves putting two boards **facing each other in close vicinity** (around 1 to 2 centimetres) and pressing the button on one of them. The board sends calibration data to the other device, triggering calibration data to be sent by the other one as well. During the calibration, **5 Bluetooth messages** are transmitted from each of the boards, containing the proximity values. After the calibration, the boards are able to estimate their distance from each other with **high accuracy** (± 20 cm).
+
+![alt text][Calibration]
+
+The distance is estimated by the **RSSI** values and can have a higher error by the fluctuations in the signal strength.
 
 # Getting Mesh Network Summary
 The **mesh_app.c** exposes the following method:
@@ -87,3 +93,6 @@ So in the aforementioned example, the first board (first line) has an address of
    [specific commit (3672feb)]: <https://github.com/nrfconnect/sdk-zephyr/tree/3672feb3fa85b5f4e7207cc77af8d194798dd248>
    [Nordic nRF Connect app]: <https://www.nordicsemi.com/Software-and-tools/Development-Tools/nRF-Connect-for-mobile>
    [Mesh Badge sample]: <https://docs.zephyrproject.org/2.4.0/samples/boards/reel_board/mesh_badge/README.html>
+   
+   [Calibration]: https://github.com/AmirMahdiNassiri/WSN-Mesh-Project/blob/master/assets/Calibration.gif "Calibration"
+   [Pic 3]: https://github.com/AmirMahdiNassiri/WSN-Mesh-Project/blob/master/assets/Pic%203.jpg "Connected nodes"
