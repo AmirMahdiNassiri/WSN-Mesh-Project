@@ -60,3 +60,4 @@ int calibrate_node(uint16_t, char*, int, int);
 void get_self_node_message(char*);
 void update_node_data(uint16_t, int, char*);
 void update_average_temperature(void);
+void get_mesh_summary(char* buffer);
