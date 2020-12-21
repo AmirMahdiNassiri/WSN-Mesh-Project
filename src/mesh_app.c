@@ -21,6 +21,8 @@ const float PROXIMITY_TO_METER = MAX_PROXIMITY_DISTANCE / 235;
 
 const int ENVIRONMENTAL_FACTOR = 2 * 10;
 
+#define POST_DATA_INTERVAL K_MINUTES(1)
+
 // ======================================== Global Variables ======================================== //
 
 double average_node_temperature;
@@ -30,9 +32,13 @@ struct node_data self_node_data;
 int current_nodes = 0;
 struct node_data neighbor_nodes_data[MAX_NODES];
 
+static struct k_delayed_work post_data_work;
+
 // ======================================== Functions ======================================== //
 
 void get_mesh_summary(char*);
+
+void post_data();
 
 void print_mesh_summary()
 {
@@ -123,6 +129,9 @@ void initialize_app()
         
         neighbor_nodes_data[i] = n;
     }
+
+	k_delayed_work_init(&post_data_work, post_data);
+    k_delayed_work_submit(&post_data_work, POST_DATA_INTERVAL);
 
     print_status_update();
 }
@@ -377,7 +386,7 @@ void get_mesh_summary(char* buffer)
     }
 }
 
-void post_sensor_data()
+void post_data()
 {
     int length = (current_nodes + 1) * MAX_MESSAGE_SIZE;
     char *data = (char*)malloc(length * sizeof(char));
@@ -396,4 +405,9 @@ void post_sensor_data()
     get_mesh_summary(data);
 
     // Boss' code will go here..
+
+
+
+    // Repeat the work
+    k_delayed_work_submit(&post_data_work, POST_DATA_INTERVAL);
 }
