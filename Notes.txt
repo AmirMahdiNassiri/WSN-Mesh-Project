@@ -1,11 +1,12 @@
 ================================================================================
+TODO:
 
+================================================================================
 Copy Kconfig file into the following Zephyr directory:
 
 zephyr/subsys/bluetooth/mesh/Kconfig
 
 ================================================================================
-
 The nRF chip erase command is required to change mesh network configuration:
 
 pyocd erase -c chip -t nrf52
@@ -17,7 +18,6 @@ west -erase
 before flashing
 
 ================================================================================
-
 Controlling signal power:
 
 BT_CTLR_TX_PWR
@@ -25,12 +25,7 @@ BT_CTLR_TX_PWR
 https://docs.zephyrproject.org/latest/reference/kconfig/choice_345.html?highlight=bt_ctlr_tx_pwr
 
 ================================================================================
-
-BOSS:
-
-address,temperature,humidity,neighborCount,neighbor1Address:neighbor1Distance,neighbor2Address:neighbor2Distance
-
-PROF:
+Node Message Encoding:
 
 ID, Temp, Hum; NeighborCount, <ID, Distance> * NeighborCount
 

@@ -81,23 +81,6 @@ void copy_bluetooth_name(char *buffer)
 	strcpy(self_node_data.name, bluetooth_name);
 }
 
-static void heartbeat(uint8_t hops, uint16_t feat)
-{
-	board_show_text("Heartbeat Received", false, K_SECONDS(2));
-}
-
-static struct bt_mesh_cfg_srv cfg_srv = {
-	.relay = BT_MESH_RELAY_ENABLED,
-	.beacon = BT_MESH_BEACON_DISABLED,
-	.default_ttl = DEFAULT_TTL,
-
-	/* 3 transmissions with 20ms interval */
-	.net_transmit = BT_MESH_TRANSMIT(2, 20),
-	.relay_retransmit = BT_MESH_TRANSMIT(3, 20),
-
-	.hb_sub.func = heartbeat,
-};
-
 static struct bt_mesh_cfg_cli cfg_cli = { };
 
 static void attention_on(struct bt_mesh_model *model)
@@ -333,7 +316,6 @@ static const struct bt_mesh_model_op sensor_srv_op[] = {
 
 static struct bt_mesh_model root_models[] = 
 {
-	BT_MESH_MODEL_CFG_SRV(&cfg_srv),
 	BT_MESH_MODEL_CFG_CLI(&cfg_cli),
 	BT_MESH_MODEL_HEALTH_SRV(&health_srv, &health_pub),
 	BT_MESH_MODEL(BT_MESH_MODEL_ID_GEN_ONOFF_SRV,

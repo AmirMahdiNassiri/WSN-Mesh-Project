@@ -22,13 +22,13 @@ The project was built and tested using **Zephyr version 2.4**. Here is the infor
 
 > VERSION_MINOR = 4
 
-> PATCHLEVEL = 0
+> PATCHLEVEL = 99
 
 > VERSION_TWEAK = 0
 
-> EXTRAVERSION = rc1
+> EXTRAVERSION = 
 
-More specifically, the Zephyr folder was checked out from this [specific commit (3672feb)].
+More specifically, the Zephyr folder was checked out from this [specific commit (3b89f4a)].
 
 The only **required edition** to this version of Zephyr's source code is copying the following file:
 ```sh
@@ -96,7 +96,7 @@ So in the aforementioned example, the first board (first line) has an address of
    [Zephyr RTOS]: <https://www.zephyrproject.org/>
    [University of Manitoba]: <https://sci.umanitoba.ca/cs/>
    [Dr. Rasit Eskicioglu]: <http://www.cs.umanitoba.ca/~rasit/>
-   [specific commit (3672feb)]: <https://github.com/nrfconnect/sdk-zephyr/tree/3672feb3fa85b5f4e7207cc77af8d194798dd248>
+   [specific commit (3b89f4a)]: <https://github.com/zephyrproject-rtos/zephyr/commit/3b89f4a474c57aabb1401ff47c08c7e124702bce>
    [Nordic nRF Connect app]: <https://www.nordicsemi.com/Software-and-tools/Development-Tools/nRF-Connect-for-mobile>
    [Mesh Badge sample]: <https://docs.zephyrproject.org/2.4.0/samples/boards/reel_board/mesh_badge/README.html>
    
