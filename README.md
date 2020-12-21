@@ -57,6 +57,12 @@ The boards require a **calibration step** before they can estimate their distanc
 
 The calibration step involves putting two boards **facing each other in close vicinity** (around 1 to 2 centimetres) and pressing the button on one of them. The board sends calibration data to the other device, triggering calibration data to be sent by the other one as well. During the calibration, **5 Bluetooth messages** are transmitted from each of the boards, containing the proximity values. After the calibration, the boards are able to estimate their distance from each other with **high accuracy** (± 20 cm).
 
+See the pictures below:
+
+![alt text][Pic 1]
+
+![alt text][Pic 2]
+
 ![alt text][Calibration]
 
 The distance is estimated by the **RSSI** values and can have a higher error by the fluctuations in the signal strength.
@@ -95,4 +101,6 @@ So in the aforementioned example, the first board (first line) has an address of
    [Mesh Badge sample]: <https://docs.zephyrproject.org/2.4.0/samples/boards/reel_board/mesh_badge/README.html>
    
    [Calibration]: https://github.com/AmirMahdiNassiri/WSN-Mesh-Project/blob/master/assets/Calibration.gif "Calibration"
+   [Pic 1]: https://github.com/AmirMahdiNassiri/WSN-Mesh-Project/blob/master/assets/Pic%201.jpg "First node in close vicinity for calibration"
+   [Pic 2]: https://github.com/AmirMahdiNassiri/WSN-Mesh-Project/blob/master/assets/Pic%202.jpg "Second node in close vicinity for calibration"
    [Pic 3]: https://github.com/AmirMahdiNassiri/WSN-Mesh-Project/blob/master/assets/Pic%203.jpg "Connected nodes"
