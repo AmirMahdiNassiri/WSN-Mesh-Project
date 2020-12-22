@@ -6,6 +6,7 @@
 
 #include "mesh_app.h"
 #include "mesh.h"
+#include "http_util.h"
 
 // ======================================== CONST Configurations ======================================== //
 
@@ -21,7 +22,7 @@ const float PROXIMITY_TO_METER = MAX_PROXIMITY_DISTANCE / 235;
 
 const int ENVIRONMENTAL_FACTOR = 2 * 10;
 
-#define POST_DATA_INTERVAL K_MINUTES(1)
+#define POST_DATA_INTERVAL K_MINUTES(5)
 
 // ======================================== Global Variables ======================================== //
 
@@ -286,7 +287,7 @@ void get_self_node_message(char *buffer)
 
     strcpy(self_node_data.neighbor_distances, neighbor_distances);
 
-    sprintf(buffer, "%s,%.1f,%d;%s", 
+    sprintf(buffer, "\"%s,%.1f,%d,%s\"", 
         self_node_data.name,
         self_node_data.temperature,
         self_node_data.humidity,
@@ -357,7 +358,7 @@ void update_node_data(uint16_t address, int rssi, char* message_string)
 
 void encode_node_data(struct node_data n, char* buffer)
 {
-    sprintf(buffer, "%04x,%.1f,%d;%s", 
+    sprintf(buffer, "%04x,%.1f,%d,%s", 
         n.address,
         n.temperature,
         n.humidity,
@@ -376,7 +377,8 @@ void get_mesh_summary(char* buffer)
 
     encode_node_data(self_node_data, node_buffer);
     strcat(buffer, node_buffer);
-    strcat(buffer, "\n");
+    if (current_nodes > 1) strcat(buffer, "\n");
+    else strcat(buffer, "0");
 
     for (int i = 0; i < current_nodes; i++)
     {
@@ -404,9 +406,12 @@ void post_data()
 
     get_mesh_summary(data);
 
-    // Boss' code will go here..
-
-
+    char *payload = k_malloc(100);
+    char *values = "\"%s\"";
+    sprintf(payload, values, data);
+    printk("%s\n", payload);
+    post_sensor_data(payload);
+    k_free(payload);
 
     // Repeat the work
     k_delayed_work_submit(&post_data_work, POST_DATA_INTERVAL);

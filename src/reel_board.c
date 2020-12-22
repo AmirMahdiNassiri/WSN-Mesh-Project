@@ -13,6 +13,7 @@
 #include <drivers/flash.h>
 #include <storage/flash_map.h>
 #include <drivers/sensor.h>
+#include <kernel_version.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -762,4 +763,14 @@ int board_init(void)
 	}
 
 	return 0;
+}
+
+struct kernel_version get_kernel_version(){
+	uint32_t _kernel_info = sys_kernel_version_get();
+	struct kernel_version version = {
+		.major = (_kernel_info >> (8*3)) & 0xff,
+		.minor = (_kernel_info >> (8*2)) & 0xff,
+		.patch = (_kernel_info >> (8*1)) & 0xff,
+	};
+	return version;
 }

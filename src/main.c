@@ -17,6 +17,7 @@
 
 #include "mesh.h"
 #include "board.h"
+#include "dhcp_config.h"
 
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_NO_BREDR),
@@ -192,8 +193,9 @@ static void bt_ready(int err)
 
 void main(void)
 {
+	initialize_dhcp();
+	
 	int err;
-
 	err = board_init();
 	if (err) {
 		printk("board init failed (err %d)\n", err);
