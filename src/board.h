@@ -25,3 +25,11 @@ int set_led_state(uint8_t id, bool state);
 int periphs_init(void);
 int board_init(void);
 void start_sensor_values_work(void);
+
+struct kernel_version {
+	uint8_t major;
+	uint8_t minor;
+	uint8_t patch;
+};
+
+struct kernel_version get_kernel_version();
